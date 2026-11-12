@@ -1,11 +1,63 @@
- See attached log for details.
+# Pressure remote connects, then MaxGateway 0010EC02086B "reboots" and the remote drops
 
-#  Pressure remote would connected for a few minutes, then the max gateway would reboot 0010EC02086B
-
-**Status:** Open,
-**Opened:** 2026-10-28 · **Last updated:** 2026-10-28
+**Status:** open, **duplicate of `../2026-10-19_socket-errors/`**.
+The "reboot" is the Concentrator app resetting itself (`SW Reseting... Type=10`, too many failed sockets), not the gateway OS rebooting.
+Every restart drops the Dust network, so the pressure remote disconnects and has to power up again.
+Root cause and tests are tracked in the socket-errors issue.
+**Opened:** 2026-11-11 · **Last updated:** 2026-11-11 · **Log date:** 2026-10-19
 
 ## Symptom
-Powered up max gateway with a pressure remote. Pressure remote would connected for a few minutes, then the max gateway would reboot itself and the pressure remote would disconnect. This repeated several times over the course of the test.
+
+As reported: "Powered up max gateway with a pressure remote. Pressure remote would connect for a few minutes,
+then the max gateway would reboot itself and the pressure remote would disconnect.
+This repeated several times over the course of the test."
 
 ## Setup
+
+| Item | Value |
+|---|---|
+| Unit | MaxGateway / CellConcentrator `0010EC02086B` (MAC `00:10:EC:02:08:6B`) |
+| App | Concentrator V 1.01.03 (before the 2026-10-20 reflash to V 1.01.07) |
+| Uplink | `ppp0` cellular (AT&T), `10.103.11.34`. Ethernet and WiFi idle |
+| Mote radio | dust_manager on `/dev/ttymxc2` |
+| Remote | Pressure Mote `00:17:0D:00:00:73:F9:5C`, protocol 204, battery 3.53 V, 0 psi (on the bench) |
+| ACS | `204.16.110.235` at first boot, then `72.249.131.173` after each restart |
+| Capture | Diagnostic App `logread`, Mon 2026-10-19 14:06:14 to 14:42:43 (EDT, the image's local time) |
+
+Log: `logs/0010EC02086B Log 20261019 (1).txt`.
+Apart from the reporter's note on line 1, it is the same capture as
+`../2026-10-19_socket-errors/logs/0010EC02086B Log 20261019.txt`.
+
+## Findings
+
+1. **The gateway does not reboot. The Concentrator app restarts itself.** Each cycle ends with:
+   `Sock Recv ERROR` → `Error 51` → `Error [7], Reading response` → `Too many failed sockets 11|12` →
+   `SW Reseting... Type=10` → about 60 s later `... 30 seconds after app wants to terminate` → `Concentrator Booting!`.
+   The `logread` session keeps running across the restarts, so Linux stayed up.
+   On the gateway's screen this looks like a reboot (it then shows `Error 10`).
+2. **Three restarts in 37 minutes:**
+
+   | Cycle | App start | Remote power-up | Sensor readings | Reset | Uptime |
+   |---|---|---|---|---|---|
+   | 1 | 14:06:14 | 14:07:54 (ACK 14:08:23) | 14:08:25, 14:13:23, 14:18:23 | 14:18:38, failed sockets 12 | 12 m 24 s |
+   | 2 | 14:19:38 | 14:21:46, again 14:26:52 | none | 14:27:33, failed sockets 11 | 7 m 55 s |
+   | 3 | 14:28:33 | 14:30:24, again 14:35:50 | none | 14:36:04, failed sockets 11 | 7 m 31 s |
+   | 4 | 14:37:04 | 14:41:27 | none | (log ends 14:42:43) | |
+
+3. **The remote reconnects after every restart but never gets fully set up again.**
+   Only in cycle 1 is the power-up ACKed and readings received (every 5 min).
+   In cycles 2 to 4 each power-up ends in `Error, Mote PwrUp response` (and `Error, Concentrator PwrUp response` at app start).
+   The remote retries about 5 min later, and the next app reset hits before it completes.
+4. **No readings reached ACS.** There are 0 `Reading PUSHED TO ACS!` lines in the capture.
+5. **The cause is ACS socket failures.** There are 71 `Sock Recv ERROR` in 37 min, nearly all right after `Getting messages from ACS`
+   (40 polls, about one every 55 s on V 1.01.03). Also 2 `Failed SSL connect! Ver=0` (14:17:45, 14:27:07).
+   11 failures in a row with no good reply trigger the Type 10 reset. This is exactly the signature analysed in
+   `../2026-10-19_socket-errors/findings.md` (cellular MTU and path failures, made worse by V 1.01.03's frequent polling).
+6. Minor, seen after each restart: `xQueueSend Invalid Handle!` / `Send to API Queue failed!` at app start (also noted in the socket-errors issue).
+
+## Next steps
+
+- Track the fix in `../2026-10-19_socket-errors/`. The remote disconnects are a side effect of the app resets and need no separate fix.
+- When the socket fix is retested, check with a pressure remote paired that it powers up, gets ACKed and pushes readings for at least an hour with no `SW Reseting`.
+- Open question: whether `Error, Mote PwrUp response` is only the failed ACS upload of the power-up message, or whether it fails on its own too.
+  Check whether it still appears when there are no socket errors.
