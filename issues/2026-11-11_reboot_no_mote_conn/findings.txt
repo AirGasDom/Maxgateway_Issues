@@ -1,0 +1,11 @@
+ See attached log for details.
+
+#  Pressure remote would connected for a few minutes, then the max gateway would reboot 0010EC02086B
+
+**Status:** Open,
+**Opened:** 2026-10-28 · **Last updated:** 2026-10-28
+
+## Symptom
+Powered up max gateway with a pressure remote. Pressure remote would connected for a few minutes, then the max gateway would reboot itself and the pressure remote would disconnect. This repeated several times over the course of the test.
+
+## Setup
