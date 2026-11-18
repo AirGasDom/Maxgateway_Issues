@@ -1,0 +1,88 @@
+By Gemini; there may be mistakes. Learn more
+
+VAGNONE, Dominic
+11:05 AM (12 minutes ago)
+to me
+
+
+
+---------- Forwarded message ---------
+From: ALLOTEY, Francis <francis.allotey@airgas.com>
+Date: Wed, Nov 18, 2026 at 10:53 AM
+Subject: Fwd: E Dubuque Nitrogen Fertilizer Missed Readings
+To: Dominic VAGNONE <dominic.vagnone@airgas.com>
+
+
+fyi
+
+---------- Forwarded message ---------
+From: BOUTILIER, Jim <jim.boutilier@airgas.com>
+Date: Wed, Nov 18, 2026 at 10:48 AM
+Subject: Re: E Dubuque Nitrogen Fertilizer Missed Readings
+To: Gianfranco ABBATEMARCO <gianfranco.abbatemarco@airgas.com>, Francis ALLOTEY <francis.allotey@airgas.com>
+Cc: Brooke STAHMER <brooke.stahmer@airgas.com>, Andy NUGENT <andy.nugent@airgas.com>, Jessie JENSEN <jessie.jensen@airgas.com>
+
+
+Gianfranco and Francis
+
+Any updates on E Dubuque Nitrogen Fertilizers?   It looks like it went back to a missed reading after being on line for a few days.
+
+Thanks
+Jim Boutilier | Director Supply Chain Solutions | Airgas, an Air Liquide company | C (979) 482-0264 | Jim.Boutilier@airgas.com
+
+
+
+
+
+On Tue, Nov 10, 2026 at 12:09 PM JENSEN, Jessie <jessie.jensen@airgas.com> wrote:
+Please see the issue summary and troubleshooting steps regarding the connectivity problems at the E Dubuque Nitrogen Fertilizer site below.
+
+Issue Summary
+Gateways at the site are experiencing persistent connection drops. Devices establish an initial connection but quickly go offline. Site personnel have confirmed that no recent changes were made to the site environment.
+
+Steps Taken Thus Far
+
+1.  Initial Troubleshooting (Original Gateway)
+
+      - ICCID: 89014104273788623281
+      - MAC Address: 00:10:ec:02:22:41
+      - Action: Performed onsite troubleshooting and rebooted the device.
+      - Result: The gateway temporarily connected but quickly dropped offline again.
+
+2.  Hardware Swap (Replacement Gateway)
+
+      - ICCID: 89014104273788622879
+      - MAC Address: 00:10:ec:02:21:f0
+      - Action: Replaced the original gateway with a new unit to rule out hardware failure.
+      - Result: The replacement gateway exhibited the exact same behavior.
+
+3.  Offsite Hardware Testing
+
+      - Action: Tested the original gateway (MAC: 00:10:ec:02:22:41) offsite at the branch.
+      - Result: The device operated normally, isolating the root cause to the physical site environment rather than the hardware.
+
+Site Layout & Equipment Placement
+For visual context, please refer to the attached file Screenshot 2026-11-10 104407.png:
+
+  - Location 1: Main Gateway (equipped with an external antenna)
+  - Location 2: Local remotes
+  - Location 3: Repeater remote
+  - Location 4: Additional remotes situated in a classified area
+
+
+Best regards,
+
+
+Jessie Jensen
+
+
+
+National EZ-GAZ & EZ-VEND Support | Airgas, an Air Liquide company
+
+(877) 330-1327 Option 4 | jessie.jensen@airgas.com | Mobile 402-801-2521
+
+To open a new EZ-GAZ/EZ-VEND support ticket, please email - DTF.Tech.Support@airgas.com
+
+Gas, Gear and Great Service. Fill your potential with Airgas.
+
+

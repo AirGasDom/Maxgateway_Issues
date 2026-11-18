@@ -1,0 +1,157 @@
+# E Dubuque Nitrogen Fertilizer: gateways connect, then drop offline (missed readings)
+
+**Ticket:** 2671
+**Status:** open, waiting for gateway logs and the queued remote queries. Based on the support email and two ACS screenshots.
+**Opened:** 2026-11-18 · **Last updated:** 2026-11-18 · **Log date:** none yet
+
+## Symptom
+
+From the support team (Jessie Jensen, 2026-11-10): "Gateways at the site are experiencing persistent connection drops.
+Devices establish an initial connection but quickly go offline."
+Site staff say nothing at the site has changed.
+
+Follow-up (Jim Boutilier, 2026-11-18): the site "went back to a missed reading after being on line for a few days".
+
+## Setup
+
+| Item | Value |
+|---|---|
+| Site | E Dubuque Nitrogen Fertilizer |
+| Original gateway | `0010EC022241` (MAC `00:10:EC:02:22:41`), ICCID `89014104273788623281` |
+| Replacement gateway | `0010EC0221F0` (MAC `00:10:EC:02:21:F0`), ICCID `89014104273788622879` |
+| Carrier | AT&T (both ICCIDs start with `890141`) |
+| App version | unknown, needs checking on both units |
+| Layout | 1: main gateway with an external antenna · 2: local remotes · 3: repeater remote · 4: more remotes in a classified area |
+
+The layout comes from `Screenshot 2026-11-10 104407.png`, which was attached to the email but is not in this folder yet.
+Source: `email_2026_11_18.txt`; ACS mote status: `acs_page01.png` (full list) and `ticket_2671.png` (first 7 rows).
+
+## Troubleshooting done so far (by support)
+
+1. The original gateway (`0010EC022241`) was checked and rebooted on site. It connected for a short time, then dropped offline again.
+2. It was swapped for `0010EC0221F0`. The replacement did exactly the same thing.
+3. The original gateway was tested at the branch and worked normally.
+   Support's conclusion: the cause is the site, not the gateway hardware.
+
+## Initial assessment (unconfirmed, no logs yet)
+
+1. **It is not clear what "goes offline" means.** It could be the gateway losing its cellular link to ACS,
+   or the remotes dropping off the Dust mesh. Either one shows up in ACS as a missed reading.
+2. **Most likely cause: the same failure as `../2026-10-19_socket-errors/`.**
+   If the cellular link at the site is weak or flaky, the gateway hits a chain of errors:
+   `Sock Recv ERROR` → `Too many failed sockets` → `SW Reseting... Type=10`.
+   Each of those app restarts takes down the Dust network, so the remotes drop and have to power up and rejoin again.
+   That matches "connects, then quickly goes offline", and both units behaving the same way.
+   It also explains why the unit worked at the branch, where coverage is better.
+   `../2026-11-11_reboot_no_mote_conn/` turned out to be this exact failure.
+3. **If the uplink is fine, look at the mesh.** Possible causes are the repeater path to the remotes in the classified area,
+   or RF interference. In that case the gateway would stay connected to ACS while individual remotes go missing.
+4. **The ACS list suggests there are two separate problems** (see below):
+   - 17 motes went quiet together on 11/17. That matches the gateway or uplink dropping out.
+   - 3 motes have been silent since 09/30. That looks like a mesh or placement problem.
+
+## ACS mote list (`acs_page01.png`, file saved 2026-11-18 11:49 AM)
+
+This is the full ACS list for `*Fertilizer*`: 21 motes, all at E Dubuque (AirgasCustID 3367072, store N108).
+All are Pressure devices on cylinders. They were provisioned 2026-02-17/18, so the site has been live since February.
+`ticket_2671.png` is an earlier, cropped view of the first 7 rows of the same list.
+
+| # | MAC (`00:17:0D:00:00:…`) | Product | Description | Last reading | Value (psig) | Alarm |
+|---|---|---|---|---|---|---|
+| 1 | `74:00:B4` | AI | Right AI Z300 | 11/17 10:21 PM | 1231 | Missed Readings |
+| 2 | `75:9D:59` | AI | Left AI Z300 | 11/17 10:13 PM | 2484 | Missed Readings |
+| 3 | `75:9D:25` | AR | Right AR AZ1300SMT | 11/17 10:17 PM | 2482 | Missed Readings |
+| 4 | `75:9D:86` | AR | Left AR AZ1300SMT | 11/17 10:22 PM | 2268 | Missed Readings |
+| 5 | `75:9D:E6` | AR | Right AR ICP180LT230 | 11/17 10:13 PM | 324 | Missed Readings |
+| 6 | `75:CC:9F` | AR | Left AR ICP180LT230 | 11/17 10:21 PM | 245 | Missed Readings |
+| 7 | `75:9C:19` | HE | Right HE UPC300 | 11/17 10:13 PM | 1974 | Missed Readings |
+| 8 | `75:9C:6C` | HE | Left HE UPC300 | 11/17 10:21 PM | 2454 | Missed Readings |
+| 9 | `75:9D:BF` | HY | Right HY UHP300 | 11/17 10:21 PM | 2322 | Missed Readings |
+| 10 | `75:9D:F5` | HY | Left HY UHP300 | 11/17 10:21 PM | 1238 | Missed Readings |
+| 11 | `75:9C:3E` | MIX | X02NI99C15A1514 | **09/30 03:27 PM** | 1129 | Missed Readings |
+| 12 | `75:9C:48` | MIX | Other | 11/17 10:21 PM | 0 | Missed Readings |
+| 13 | `75:9C:4B` | MIX | E03NI89E15A00C8 | **09/30 03:27 PM** | 1286 | Missed Readings |
+| 14 | `75:9C:5C` | MIX | X02NI88C15A2712 | 11/17 10:17 PM | 926 | Missed Readings |
+| 15 | `75:9C:89` | MIX | X03NI99C15A1348 | 11/17 10:17 PM | 926 | Missed Readings |
+| 16 | `75:9D:0D` | MIX | X03AR98C80A0002 | 11/17 10:21 PM | 995 | Missed Readings |
+| 17 | `75:9D:7A` | MIX | E02NI95E15A3186 | **11/18 10:10 AM** | 880 | **Reorder** |
+| 18 | `75:9D:F3` | MIX | X02NI99P15A0083 | **09/30 03:27 PM** | 594 | Missed Readings |
+| 19 | `75:CB:59` | MIX | X05HY59C15A1111 | 11/17 10:21 PM | 1149 | Missed Readings |
+| 20 | `75:CC:FE` | MIX | X02NI99C15A51U0 | 11/17 10:21 PM | 1799 | Missed Readings |
+| 21 | `75:CF:2F` | MIX | X06HY63P15A0001 | 11/17 10:21 PM | 1722 | Missed Readings |
+
+**Correction (added later on 2026-11-18):** the screenshot has **21** motes, not 20. #21, the last row, was missed in the first pass.
+This agrees with the ACS toolbar badges: 20 `Missed Readings` + 1 `Reorder`. So the 11/17 group is **17** motes, not 16.
+The serial on #13 is hard to read in the screenshot: `E03NI89E15A00C8` or `…00C6`.
+
+Expanded details shown: #9 at 3.51 V and 9.74 °C on 11/17; #18 at 3.48 V and 21.34 °C on 09/30.
+`Cellular Signal` (channel 1) is 0.00 on every mote expanded.
+
+Observations:
+
+1. **There are three groups of motes:**
+   - **17 motes last reported on 11/17, all within 9 minutes (10:13 to 10:22 PM).**
+     Every one of them stopped at about the same time, and all are now in `Missed Readings`.
+   - **3 motes (#11 `9C:3E`, #13 `9C:4B`, #18 `9D:F3`) last reported on 09/30 at exactly 03:27 PM.**
+     All three stopped in the same minute, about seven weeks ago.
+   - **1 mote (#17 `9D:7A`) reported this morning, 11/18 at 10:10 AM.** It is in `Reorder` (880 psig), not `Missed Readings`.
+2. **The 09/30 motes stopped together, so it was one event, not three failures.** Battery is not the cause
+   (#18 had 3.48 V on its last reading). Something on 09/30 at about 3:27 PM cut all three off,
+   and they never rejoined, even though the other motes kept reporting until 11/17. That makes these three a mesh or placement problem
+   rather than an uplink problem. It is worth checking whether they are the classified-area remotes (Location 4) behind the repeater,
+   or whether the repeater itself is one of them. It is also worth finding out what happened on site on 09/30:
+   the first gateway swap, a repeater move or power loss, or cylinders being moved.
+3. **#17 reporting at 10:10 AM today shows the gateway was online and passing data this morning.** That doesn't fit
+   "the gateway has been offline since 11/17 10:22 PM". Possible explanations:
+   - The gateway is up but the mesh is mostly down. Only #17 is still joined, or it was the first to rejoin after an app restart.
+   - The gateway connects and drops repeatedly (the "connects, then quickly goes offline" symptom). #17 happened to report
+     during a short window when the link was up.
+   - #17's report was sent right away because of the threshold crossing (`Reorder`), so it got through during that window
+     while the other motes' scheduled readings were missed.
+   Checking ACS history for `9D:7A` around 10:10 AM, and whether any other mote reported in the same window, would tell these apart.
+4. **#12 `9C:48` ("Other", 0 psig, no AirgasCustID or TankCode) looks like a spare or placeholder mote.** It still reports.
+   #13 `9C:4B` has no Dispatcher set. Neither matters for this bug, but both are worth tidying in ACS.
+5. **`DaysToEmpty` is -41551.0 on every mote,** which is obviously wrong. That is an unrelated ACS display issue.
+6. **#1 `00:17:0D:00:00:74:00:B4` is from a different MAC range** from the other 19 (`…75:xx:xx`), so it may be an older mote.
+
+## Remote queries queued to the replacement gateway (2026-11-18)
+
+Queued with `apps/mgw-unified/mgwctl.py` to `CellConcentrator-0010ec0221f0`. The unit's SIM number is unknown,
+so it can't be triggered with `GetMessages`. The jobs run at its next scheduled poll, every 12 hours.
+As of 11:51 AM, all three were still waiting in its queue.
+
+| Queue record | Job ID | What it does |
+|---|---|---|
+| 1810255 | `987c49eacbd04e6ba30af61f4a3ae009` | App versions (`rpm -q concentrator diagnostic-app rssi_fix remote-command`) |
+| 1810256 | `94d7ebe419a54bbebbb260ba6e23630d` | `sms-identify`: texts the unit's hostname from its SIM, which reveals its number |
+| 1810257 | `3db2da257bb44cc3b599bcb687e214a9` | RSSI: oFono `NetworkRegistration` `Strength` / `Technology` / `Status` |
+
+Collect with `python3 mgwctl.py status <job ID> --insecure`. To convert oFono `Strength` to raw values:
+CSQ ≈ Strength × 31 / 100, and dBm = −113 + 2 × CSQ. When and whether these jobs get picked up also shows when the gateway's uplink is working.
+
+**Version numbering:** RPM reports versions like `concentrator-1.1.7-r19` or `1.2.0-4`, while this ticket and
+the socket-errors issue use `V 1.01.03` / `V 1.01.07`. Confirm how the two map before deciding
+whether the unit has the fix (`1.1.7` is probably `1.01.07`).
+
+## Information needed
+
+- A `logread` / Diagnostic App capture from the installed gateway, covering at least one full connect-then-drop cycle,
+  and ideally 11/17 around 10:22 PM and 11/18 around 10:10 AM
+- The Concentrator app version on both units (queued for `0010EC0221F0`, see above). The socket-errors fix depends on V 1.01.07; 1.01.03 is known to be affected
+- Cellular signal strength / RSSI at Location 1 (queued for `0010EC0221F0`, see above) with the external antenna connected,
+  and whether the antenna and cable have been checked
+- The layout screenshot (`Screenshot 2026-11-10 104407.png`)
+- The physical location of each mote (Locations 2, 3 and 4), especially the three 09/30 motes (`9C:3E`, `9C:4B`, `9D:F3`),
+  and which mote or device is the repeater
+- What happened on site on 09/30 around 3:27 PM
+- ACS reading history for the 21 motes from 11/10 to now, to see the online/offline pattern after the gateway swap
+
+## Next steps
+
+- Once logs arrive, count `Sock Recv ERROR`, `Too many failed sockets` and `SW Reseting` lines.
+  Also check for `Reading PUSHED TO ACS!` and whether mote power-ups get ACKed.
+  If the socket/reset signature is there, mark this a duplicate of `../2026-10-19_socket-errors/`
+  and reflash to V 1.01.07 (or the current fixed build).
+- If there are no app resets, analyse the Dust mesh instead: mote join and leave events, and the repeater path.
+- In any case, check in the gateway's Dust manager whether the three 09/30 motes (`9C:3E`, `9C:4B`, `9D:F3`) are joined at all.
+  If they are not, check them on site: battery, placement, and whether there is a path to the repeater.
