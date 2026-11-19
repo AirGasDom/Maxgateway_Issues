@@ -1,7 +1,7 @@
 # E Dubuque Nitrogen Fertilizer: gateways connect, then drop offline (missed readings)
 
 **Ticket:** 2671
-**Status:** open, waiting for gateway logs and the queued remote queries. Based on the support email and two ACS screenshots.
+**Status:** open. The current outage is on the cellular side: the gateway can't be reached over cellular. Next step: on-site antenna and coverage tests. Also waiting on gateway logs and the queued remote queries.
 **Opened:** 2026-11-18 · **Last updated:** 2026-11-18 · **Log date:** none yet
 
 ## Symptom
@@ -18,9 +18,9 @@ Follow-up (Jim Boutilier, 2026-11-18): the site "went back to a missed reading a
 |---|---|
 | Site | E Dubuque Nitrogen Fertilizer |
 | Original gateway | `0010EC022241` (MAC `00:10:EC:02:22:41`), ICCID `89014104273788623281` |
-| Replacement gateway | `0010EC0221F0` (MAC `00:10:EC:02:21:F0`), ICCID `89014104273788622879` |
+| Replacement gateway | `0010EC0221F0` (MAC `00:10:EC:02:21:F0`), ICCID `89014104273788622879`, SIM number **1-577-612-0327** |
 | Carrier | AT&T (both ICCIDs start with `890141`) |
-| App version | unknown, needs checking on both units |
+| App version | `0010EC0221F0`: concentrator **1.2.0-4**, diagnostic-app 1.1.0-r14, remote-command 1.0.4-b1, `rssi_fix` not installed. `0010EC022241`: unknown |
 | Layout | 1: main gateway with an external antenna · 2: local remotes · 3: repeater remote · 4: more remotes in a classified area |
 
 The layout comes from `Screenshot 2026-11-10 104407.png`, which was attached to the email but is not in this folder yet.
@@ -116,8 +116,8 @@ Observations:
 
 ## Remote queries queued to the replacement gateway (2026-11-18)
 
-Queued with `apps/mgw-unified/mgwctl.py` to `CellConcentrator-0010ec0221f0`. The unit's SIM number is unknown,
-so it can't be triggered with `GetMessages`. The jobs run at its next scheduled poll, every 12 hours.
+Queued with `apps/mgw-unified/mgwctl.py` to `CellConcentrator-0010ec0221f0`. When these were queued, the SIM number wasn't known yet.
+It has since been found: 577-612-0327 (see the next section). Texting `GetMessages` to it triggers the jobs; otherwise they run at the next 12-hour poll.
 As of 11:51 AM, all three were still waiting in its queue.
 
 | Queue record | Job ID | What it does |
@@ -132,6 +132,107 @@ CSQ ≈ Strength × 31 / 100, and dBm = −113 + 2 × CSQ. When and whether thes
 **Version numbering:** RPM reports versions like `concentrator-1.1.7-r19` or `1.2.0-4`, while this ticket and
 the socket-errors issue use `V 1.01.03` / `V 1.01.07`. Confirm how the two map before deciding
 whether the unit has the fix (`1.1.7` is probably `1.01.07`).
+
+## Replacement gateway history from its REST results channel (read 2026-11-18 1:20 PM)
+
+`CellConcentrator-0010ec0221f0_write` already held 1,892 records: 9 results from earlier mgwctl jobs (another operator's),
+plus 1,883 telemetry records. So none of this needed the unit to poll.
+
+**From the earlier results:**
+- **SIM number (MSISDN): `15776120327`** (record 1781819, from `qmicli` and oFono `SubscriberNumbers`).
+  Text `GetMessages` to 577-612-0327 to make the unit poll its queue straight away.
+- **Packages** (latest result, record 1810013, about 11/17): concentrator **1.2.0-4**, diagnostic-app 1.1.0-r14.
+  Earlier results also show remote-command 1.0.4-b1, and `rssi_fix` not installed.
+- `/var/log -> /run/log` since 11/12 19:01. That's the same DNF `/var/log` fix that was applied to `0010EC0221E6`.
+
+**Cellular signal telemetry** (`{"RSSI": n}`, every 15 minutes, 11/03 11:00 to 11/15 00:00):
+`n` is oFono `Strength` = floor(CSQ × 100 / 31). The values seen fit exactly: 70/74/77/80/100 = CSQ 22/23/24/25/31.
+
+| Period | Signal |
+|---|---|
+| 11/03 11:00 – 11/08 22:15 | Strong, mostly 80 (CSQ 25 ≈ **−63 dBm**), range −69 to −51 dBm |
+| 11/08 22:30 – 11/09 06:45 | Four drops to **0**, the longest 2.5 h |
+| 11/09 07:00 – 11/10 22:15 | 80 |
+| 11/10 22:30 – 23:00 | 0 |
+| **11/10 23:45 – 11/12 02:00** | **0 for 26 hours** |
+| 11/12 02:15 – 11/12 23:45 | 80, with two short drops to 0 (05:30, 18:15–18:30) |
+| **11/13 00:00 – 15:45** | **0 for 16 hours** |
+| 11/13 16:00 – 11/15 00:00 | 80 (telemetry ends here) |
+
+The uptime records show a reboot on about **11/13 03:30**, during the 16-hour outage (11/15 00:01: "up 1 day 20:29").
+The previous boot was about 11/03 10:50.
+
+**What this suggests:**
+1. **When the signal is there, it is strong** (about −63 dBm). It never fades gradually to a weak level; it **switches between strong and 0**, where 0 = not registered (see "What a 0 in the signal log means" below).
+   That points to the modem losing registration or locking up, or something blocking the antenna path altogether,
+   rather than marginal coverage. That weakens the "weak signal at the site" explanation in the initial assessment.
+   The cause could be the external antenna or its cable or connector, the modem or SIM dropping off the network, or the carrier.
+2. **The long zero periods mean the gateway had no cellular connection at all**, which would cause missed readings across the whole site.
+   This fits the "connects, then quickly goes offline" symptom.
+3. **Caveat:** the dates show that telemetry was being recorded from 11/03. Where the unit was during each period
+   (branch or site) still needs to be matched against the swap date.
+4. Telemetry stops at 11/15 00:00. Whether that's the uplink or the log sender stopping is unknown.
+
+## The current outage is on the cellular side, not the mesh (2026-11-18 1:35 PM)
+
+At about 1:25 PM `GetMessages` was texted to 577-612-0327. By 1:33 PM the gateway still hadn't polled: all 7 queued records
+(1810255–1810261, including an RSSI script) were still waiting.
+
+**Conclusion:** the gateway itself can't be reached over cellular. If the problem were only the mesh or the motes,
+the gateway would still answer `GetMessages` and take its queued jobs. It doesn't, so the uplink is down.
+The site-wide missed readings follow from that: with no uplink, mote readings can't reach ACS.
+This rules out the mesh-only explanation (initial assessment item 3) for the current outage.
+The three motes silent since 09/30 may still be a separate mesh problem.
+
+**Coverage, or the site's antenna?** Both remain possible:
+- **Cellular coverage at the site:** AT&T LTE Cat-M1 service at East Dubuque, a tower outage, or band issues.
+- **The site's antenna setup:** the external antenna, its cable or a connector. **The gateway swap didn't change the antenna.**
+  Both gateways used the same external antenna at Location 1, so it is the one thing they shared.
+  "Works at the branch, fails at the site" fits a faulty antenna path just as well as poor coverage.
+
+The signal log leans slightly toward the antenna path. The signal never fades to a weak level; it switches between
+strong (about −63 dBm) and 0, for up to 26 hours at a time. Patchy coverage would usually also show weak readings in between.
+But a carrier or tower outage could look the same.
+
+**What a 0 in the signal log means:** it does not mean a very weak signal. The log records oFono's `Strength`,
+and oFono gives no strength value when the modem isn't registered on a network; the logging script then records 0.
+So every 0 means **the modem had lost network registration**. It doesn't mean a measured weak signal.
+The log contains no weak values at all (nothing between 0 and 70), only strong-and-registered or not registered.
+
+**Possible causes of losing registration:**
+- **Antenna path:** something blocking or breaking the external antenna, its cable or a connector (including water getting in)
+- **Carrier or tower:** an AT&T LTE-M outage, or the local tower dropping Cat-M1 service
+- **Modem or SIM locking up**
+
+**The reboot argues against a modem lock-up.** The unit rebooted at about 11/13 03:30, in the middle of the
+16-hour outage (11/13 00:00–15:45), but registration didn't come back until 16:00, about 12 hours later.
+A hung modem or SIM usually recovers when the unit reboots. This one didn't, which points to a cause outside the gateway:
+the antenna path or the carrier. That fits support's finding that the hardware works at the branch.
+
+**Source note:** these values come from the gateway's own 15-minute signal log on its REST results channel (11/03–11/15).
+They don't come from `examples/rssi.sh`, which hasn't run yet because the unit is offline.
+
+**On-site tests to tell them apart:**
+1. **Swap the antenna path:** try a different external antenna and cable, or the gateway's own antenna.
+   If the drops stop, the antenna path was the cause.
+2. **Check coverage with an AT&T phone at Location 1** during a drop.
+   Also look up AT&T outage reports and LTE-M coverage for East Dubuque.
+3. **Record the time of each drop**, so it can be matched against the gateway's signal log and the ACS missed readings.
+
+When the gateway next takes its queued jobs (watched every 30 minutes), that time shows when the uplink came back.
+
+**Update 11/18 2:51 PM:** between 2:21 and 2:51 PM the gateway took 6 of its 7 queued records (1810255–1810260),
+so the uplink was up at least briefly. That's about 1.5 hours after the 1:25 PM `GetMessages` text.
+By 3:17 PM it still hadn't posted any results, and the last record (1810261) was still queued.
+That fits a short connection window that dropped again before the jobs' results could be posted (the "connects, then drops" symptom).
+The results should be saved on the unit; a `probe` can make it resend them the next time it connects.
+
+**Update 11/19 5:21 AM:** the gateway polled twice more. Between 3:22 and 3:51 PM on 11/18 it took the last record of our jobs (1810261).
+Between 4:51 and 5:21 AM on 11/19 it took record 1810267, an immediate `reboot` queued by another operator, not part of our jobs.
+So it reaches the REST service roughly every 12 hours, but **it has still posted no results for any of the four jobs**,
+and its results channel has stayed at 1,892 records since 11/17. Reading the queue works; posting results apparently doesn't,
+or the connection drops before the post. The reboot result itself won't be posted, because the unit restarts before it can post.
+`examples/rssi.sh` (job `6fcd9064…`) will then report the signal as CSQ and dBm at that moment.
 
 ## Information needed
 
@@ -153,5 +254,8 @@ whether the unit has the fix (`1.1.7` is probably `1.01.07`).
   If the socket/reset signature is there, mark this a duplicate of `../2026-10-19_socket-errors/`
   and reflash to V 1.01.07 (or the current fixed build).
 - If there are no app resets, analyse the Dust mesh instead: mote join and leave events, and the repeater path.
+  (Lower priority now: the current outage is on the cellular side. See "The current outage is on the cellular side, not the mesh".)
+- **First, on site:** swap the external antenna and cable (or use the gateway's own antenna), check AT&T coverage at Location 1
+  with a phone during a drop, and record the drop times.
 - In any case, check in the gateway's Dust manager whether the three 09/30 motes (`9C:3E`, `9C:4B`, `9D:F3`) are joined at all.
   If they are not, check them on site: battery, placement, and whether there is a path to the repeater.
